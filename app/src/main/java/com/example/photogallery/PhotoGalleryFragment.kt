@@ -1,12 +1,15 @@
 package com.example.photogallery
 
+import android.graphics.drawable.Drawable
 import android.os.AsyncTask
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import android.widget.TextView
+import android.widget.ImageView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -14,6 +17,7 @@ import kotlinx.android.synthetic.main.fragment_photo_gallery.*
 import java.lang.ref.WeakReference
 
 class PhotoGalleryFragment private constructor() : Fragment() {
+    private lateinit var thumbnailDownloader: ThumbnailDownloader<PhotoHolder>
     private lateinit var recyclerView: RecyclerView
     private var items = ArrayList<GalleryItem>()
     private var isLoading = false
@@ -23,6 +27,13 @@ class PhotoGalleryFragment private constructor() : Fragment() {
         super.onCreate(savedInstanceState)
         retainInstance = true
         FetchItemsTask(this).execute()
+
+        thumbnailDownloader = ThumbnailDownloader()
+        thumbnailDownloader.apply {
+            start()
+            getLooper()
+        }
+        Log.i(LOG_TAG, "background thread started")
     }
 
     override fun onCreateView(
@@ -63,26 +74,37 @@ class PhotoGalleryFragment private constructor() : Fragment() {
         page_counter.text = currentPage.toString()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        thumbnailDownloader.quit()
+        Log.i(LOG_TAG, "Background thread destroyed")
+    }
+
     private fun setupAdapter() {
         if (isAdded) recyclerView.adapter = PhotoAdapter()
     }
 
     private inner class PhotoHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val titleTextView = itemView as TextView
+        private val itemImageView = itemView.findViewById(R.id.item_image_view) as ImageView
 
-        fun bindGalleryItem(item: GalleryItem) {
-            titleTextView.text = item.toString()
+        fun bindDrawable(drawable: Drawable) {
+            itemImageView.setImageDrawable(drawable)
         }
     }
 
     private inner class PhotoAdapter : RecyclerView.Adapter<PhotoHolder>() {
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-            PhotoHolder(TextView(activity))
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoHolder {
+            val view = LayoutInflater.from(activity).inflate(R.layout.gallery_item, parent, false)
+            return PhotoHolder(view)
+        }
 
         override fun getItemCount() = items.size
 
         override fun onBindViewHolder(holder: PhotoHolder, position: Int) {
-            holder.bindGalleryItem(items[position])
+            holder.bindDrawable(
+                ContextCompat.getDrawable(activity?.applicationContext!!, R.drawable.cat)!!
+            )
+            thumbnailDownloader.queueThumbnail(holder, items[position].url)
         }
     }
 

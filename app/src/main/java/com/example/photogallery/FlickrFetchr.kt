@@ -14,7 +14,7 @@ object FlickrFetchr {
     private const val API_KEY = "3df4bf25938544544d17ee089e0979a3"
     private val LOG_TAG = this::class.java.simpleName
 
-    private fun getUrlBytes(urlSpec: String): ByteArray {
+    fun getUrlBytes(urlSpec: String): ByteArray {
         val url = URL(urlSpec)
         val connection = url.openConnection() as HttpURLConnection
         try {
