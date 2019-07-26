@@ -1,8 +1,11 @@
 package com.example.photogallery
 
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.AsyncTask
 import android.os.Bundle
+import android.os.Handler
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -15,21 +18,32 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.android.synthetic.main.fragment_photo_gallery.*
 import java.lang.ref.WeakReference
+import kotlin.math.max
+import kotlin.math.min
 
 class PhotoGalleryFragment private constructor() : Fragment() {
-    private lateinit var thumbnailDownloader: ThumbnailDownloader<PhotoHolder>
+    private lateinit var thumbnailDownloader: ThumbnailDownloader<Int>
     private lateinit var recyclerView: RecyclerView
     private var items = ArrayList<GalleryItem>()
     private var isLoading = false
     private var currentPage = 1
+    private var firstItemPosition = 1
+    private var lastItemPosition = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         retainInstance = true
         FetchItemsTask(this).execute()
 
-        thumbnailDownloader = ThumbnailDownloader()
+        val responseHandler = Handler()
+        thumbnailDownloader = ThumbnailDownloader(responseHandler)
         thumbnailDownloader.apply {
+            thumbnailDownloadListener =
+                object : ThumbnailDownloader.ThumbnailDownloadListener<Int> {
+                    override fun onThumbnailDownloaded(position: Int, bitmap: Bitmap) {
+                        recyclerView.adapter?.notifyItemChanged(position)
+                    }
+                }
             start()
             getLooper()
         }
@@ -49,29 +63,62 @@ class PhotoGalleryFragment private constructor() : Fragment() {
                     override fun onGlobalLayout() {
                         viewTreeObserver.removeOnGlobalLayoutListener(this)
                         layoutManager = GridLayoutManager(activity, width / 300)
-                        setupAdapter()
                     }
                 })
 
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                    super.onScrolled(recyclerView, dx, dy)
                     val lm = recyclerView.layoutManager as GridLayoutManager
+                    val lastVisible = lm.findLastVisibleItemPosition()
+                    val firstVisible = lm.findFirstVisibleItemPosition()
+
+                    if (lastItemPosition != lastVisible || firstItemPosition != firstVisible) {
+                        Log.i(LOG_TAG, "showing items from $firstVisible to $lastVisible")
+                        lastItemPosition = lastVisible
+                        firstItemPosition = firstVisible
+                        val start = max(firstVisible - 10, 0)
+                        val end = min(lastVisible + 10, items.size - 1)
+                        for (i in start until end) {
+                            val url = items[i].url
+                            if (thumbnailDownloader.cache[url] == null) {
+                                Log.i(LOG_TAG, "Requesting download at position: $i")
+                                thumbnailDownloader.queueThumbnail(i, url)
+                            }
+                        }
+                    }
+
                     if (dy > 0) {
-                        if (lm.findLastVisibleItemPosition() > 80 * (currentPage - 1) && !isLoading) {
+                        if (lastVisible > 80 * currentPage && !isLoading) {
                             isLoading = true
                             FetchItemsTask(this@PhotoGalleryFragment).execute(++currentPage)
                         }
                     }
+
+                    if (dy < 0) {
+                        if (firstVisible < 80 * (currentPage - 1) && !isLoading) {
+                            currentPage--
+                            updatePageNumber()
+                        }
+                    }
                 }
             })
+
+            if (recyclerView.adapter == null) setupAdapter()
         }
         return v
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        page_counter.text = currentPage.toString()
+        updatePageNumber()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        with(thumbnailDownloader) {
+            clearQueue()
+            clearCache()
+        }
     }
 
     override fun onDestroy() {
@@ -82,6 +129,10 @@ class PhotoGalleryFragment private constructor() : Fragment() {
 
     private fun setupAdapter() {
         if (isAdded) recyclerView.adapter = PhotoAdapter()
+    }
+
+    private fun updatePageNumber() {
+        page_counter.text = getString(R.string.page_number, currentPage)
     }
 
     private inner class PhotoHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -101,10 +152,13 @@ class PhotoGalleryFragment private constructor() : Fragment() {
         override fun getItemCount() = items.size
 
         override fun onBindViewHolder(holder: PhotoHolder, position: Int) {
-            holder.bindDrawable(
-                ContextCompat.getDrawable(activity?.applicationContext!!, R.drawable.cat)!!
-            )
-            thumbnailDownloader.queueThumbnail(holder, items[position].url)
+            Log.i(LOG_TAG, "Binding item $position to ${holder.hashCode()}")
+            val bitmap = thumbnailDownloader.cache[items[position].url]
+            val drawable =
+                if (bitmap == null) {
+                    ContextCompat.getDrawable(activity?.applicationContext!!, R.drawable.cat)!!
+                } else BitmapDrawable(resources, bitmap)
+            holder.bindDrawable(drawable)
         }
     }
 
@@ -119,7 +173,7 @@ class PhotoGalleryFragment private constructor() : Fragment() {
         override fun onPostExecute(result: List<GalleryItem>) {
             with(weakReference.get() ?: return) {
                 items.addAll(result as ArrayList)
-                page_counter.text = currentPage.toString()
+                updatePageNumber()
                 isLoading = false
                 recyclerView.adapter?.notifyItemRangeChanged(100 * currentPage, items.size)
             }

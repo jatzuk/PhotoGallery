@@ -18,11 +18,11 @@ object FlickrFetchr {
         val url = URL(urlSpec)
         val connection = url.openConnection() as HttpURLConnection
         try {
-            connection.inputStream.bufferedReader().use {
+            connection.inputStream.use {
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                     throw IOException("${connection.responseCode}: with $urlSpec")
                 }
-                return it.readText().toByteArray()
+                return it.readBytes()
             }
         } finally {
             connection.disconnect()
