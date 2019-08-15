@@ -12,6 +12,16 @@ import java.net.URL
 
 object FlickrFetchr {
     private const val API_KEY = "3df4bf25938544544d17ee089e0979a3"
+    private const val FETCH_RECENT_METHOD = "flickr.photos.getRecent"
+    private const val SEARCH_METHOD = "flickr.photos.search"
+    private val ENDPOINT = Uri
+        .parse("https://www.flickr.com/services/rest/")
+        .buildUpon()
+        .appendQueryParameter("api_key", API_KEY)
+        .appendQueryParameter("format", "json")
+        .appendQueryParameter("nojsoncallback", "1")
+        .appendQueryParameter("extras", "url_s")
+        .build()
     private val LOG_TAG = this::class.java.simpleName
 
     fun getUrlBytes(urlSpec: String): ByteArray {
@@ -31,19 +41,14 @@ object FlickrFetchr {
 
     private fun getUrlString(urlSpec: String) = String(getUrlBytes(urlSpec))
 
-    fun fetchItems(page: Int): List<GalleryItem> {
+    fun fetchRecentPhotos(page: Int) =
+        downloadGalleryItems(buildUrl(FETCH_RECENT_METHOD, page.toString()))
+
+    fun searchPhotos(query: String) = downloadGalleryItems(buildUrl(SEARCH_METHOD, query))
+
+    private fun downloadGalleryItems(url: String): List<GalleryItem> {
         try {
-            val jsonString = getUrlString(
-                Uri.parse("https://www.flickr.com/services/rest/")
-                    .buildUpon()
-                    .appendQueryParameter("method", "flickr.photos.getRecent")
-                    .appendQueryParameter("api_key", API_KEY)
-                    .appendQueryParameter("format", "json")
-                    .appendQueryParameter("nojsoncallback", "1")
-                    .appendQueryParameter("extras", "url_s")
-                    .appendQueryParameter("page", page.toString())
-                    .build().toString()
-            )
+            val jsonString = getUrlString(url)
             Log.i(LOG_TAG, jsonString)
             return parseItems(JSONObject(jsonString))
         } catch (e: IOException) {
@@ -52,6 +57,15 @@ object FlickrFetchr {
             Log.e(LOG_TAG, "Failed to parse JSON", e)
         }
         return emptyList()
+    }
+
+    private fun buildUrl(method: String, query: String?): String {
+        val builder = ENDPOINT.buildUpon().appendQueryParameter("method", method)
+        when (method) {
+            FETCH_RECENT_METHOD -> builder.appendQueryParameter("page", query)
+            SEARCH_METHOD -> builder.appendQueryParameter("text", query)
+        }
+        return builder.build().toString()
     }
 
     private fun parseItems(jsonBody: JSONObject): List<GalleryItem> {
