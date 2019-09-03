@@ -136,6 +136,10 @@ class PhotoGalleryFragment private constructor() : Fragment() {
         searchView.setOnSearchClickListener {
             searchView.setQuery(QueryPreferences.getStoredQuery(context!!), false)
         }
+
+        menu.findItem(R.id.menu_item_toggle_polling).title =
+            if (PollService.isServiceAlarmOn(activity!!)) getString(R.string.stop_polling)
+            else getString(R.string.start_polling)
     }
 
     override fun onOptionsItemSelected(item: MenuItem?): Boolean {
@@ -143,6 +147,12 @@ class PhotoGalleryFragment private constructor() : Fragment() {
             R.id.menu_item_clear -> {
                 QueryPreferences.setStoredQuery(context!!, null)
                 updateItems()
+                true
+            }
+            R.id.menu_item_toggle_polling -> {
+                val shouldStartAlarm = !PollService.isServiceAlarmOn(activity!!)
+                PollService.setServiceAlarm(activity!!, shouldStartAlarm)
+                activity!!.invalidateOptionsMenu()
                 true
             }
             else -> super.onOptionsItemSelected(item)
