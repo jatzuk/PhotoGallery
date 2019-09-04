@@ -229,16 +229,21 @@ class PhotoGalleryFragment private constructor() : Fragment() {
         override fun onPostExecute(result: List<GalleryItem>) {
             with(weakReference.get() ?: return) {
                 if (query.isNullOrEmpty()) {
+                    fillItems(result)
                     recyclerView.adapter?.notifyItemRangeChanged(100 * currentPage, items.size)
                 } else {
                     items.clear()
+                    fillItems(result)
                     currentPage = 1
                     recyclerView.adapter?.notifyDataSetChanged()
                 }
-                items.addAll(result as ArrayList)
                 updatePageNumber()
                 isLoading = false
             }
+        }
+
+        private fun fillItems(result: List<GalleryItem>) {
+            weakReference.get()?.items?.addAll(result)
         }
     }
 
