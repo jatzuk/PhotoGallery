@@ -18,8 +18,8 @@ object QueryPreferences {
             .apply()
     }
 
-    fun getLastResultId(context: Context) = PreferenceManager.getDefaultSharedPreferences(context)
-        .getString(PREF_LAST_RESULT_ID, null)
+    fun getLastResultId(context: Context): String? =
+        PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_LAST_RESULT_ID, null)
 
     fun setLastResultId(context: Context, lastResultId: String) {
         PreferenceManager.getDefaultSharedPreferences(context)
