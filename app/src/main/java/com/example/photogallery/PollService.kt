@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 
 class PollService : IntentService(TAG) {
     override fun onHandleIntent(intent: Intent?) {
@@ -26,28 +27,30 @@ class PollService : IntentService(TAG) {
             else "Got a new result: $resultId"
         Log.i(TAG, logInfo)
 
-        val channelId = "new_pictures_report"
         val pi = PendingIntent.getActivity(this, 0, PhotoGalleryActivity.newIntent(this), 0)
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val notification = NotificationCompat.Builder(this, channelId)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "channel name"
+            val descriptionText = "notification for new pics"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel("new_pictures_report", name, importance).apply {
+                description = descriptionText
+            }
+
+            val notificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val builder = NotificationCompat.Builder(this, "channel_id")
             .setTicker(resources.getString(R.string.new_pictures_title))
             .setSmallIcon(android.R.drawable.ic_menu_report_image)
             .setContentTitle(resources.getString(R.string.new_pictures_title))
             .setContentText(resources.getString(R.string.new_pictures_text))
             .setContentIntent(pi)
             .setAutoCancel(true)
-            .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                getString(R.string.app_name),
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            channel.description = "notification for new pics"
-            nm.createNotificationChannel(channel)
-        }
-        nm.notify(0, notification)
+        with(NotificationManagerCompat.from(this)) { notify(100, builder.build()) }
 
         QueryPreferences.setLastResultId(this, resultId)
     }
