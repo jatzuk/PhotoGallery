@@ -11,7 +11,6 @@ import android.view.*
 import android.widget.ImageView
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.android.synthetic.main.fragment_photo_gallery.*
@@ -19,7 +18,7 @@ import java.lang.ref.WeakReference
 import kotlin.math.max
 import kotlin.math.min
 
-class PhotoGalleryFragment private constructor() : Fragment() {
+class PhotoGalleryFragment private constructor() : VisibleFragment() {
     private lateinit var thumbnailDownloader: ThumbnailDownloader<Int>
     private lateinit var recyclerView: RecyclerView
     private var items = ArrayList<GalleryItem>()
