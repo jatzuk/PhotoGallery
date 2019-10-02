@@ -1,5 +1,6 @@
 package com.example.photogallery
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -184,11 +185,25 @@ class PhotoGalleryFragment private constructor() : VisibleFragment() {
         page_counter.text = getString(R.string.page_number, currentPage)
     }
 
-    private inner class PhotoHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    private inner class PhotoHolder(itemView: View) : RecyclerView.ViewHolder(itemView),
+        View.OnClickListener {
         private val itemImageView = itemView.findViewById(R.id.item_image_view) as ImageView
+        private lateinit var galleryItem: GalleryItem
+
+        init {
+            itemView.setOnClickListener(this)
+        }
 
         fun bindDrawable(drawable: Drawable) {
             itemImageView.setImageDrawable(drawable)
+        }
+
+        fun bindGalleryItem(galleryItem: GalleryItem) {
+            this.galleryItem = galleryItem
+        }
+
+        override fun onClick(v: View?) {
+            startActivity(PhotoPageActivity.newIntent(context!!, galleryItem.getPhotoPageUri()))
         }
     }
 
@@ -202,7 +217,9 @@ class PhotoGalleryFragment private constructor() : VisibleFragment() {
 
         override fun onBindViewHolder(holder: PhotoHolder, position: Int) {
             Log.i(LOG_TAG, "Binding item $position to ${holder.hashCode()}")
-            val bitmap = thumbnailDownloader.cache[items[position].url]
+            val galleryItem = items[position]
+            holder.bindGalleryItem(galleryItem)
+            val bitmap = thumbnailDownloader.cache[galleryItem.url]
             val drawable = if (bitmap == null) {
                 ContextCompat.getDrawable(context!!, R.drawable.cat)!!
             } else BitmapDrawable(resources, bitmap)

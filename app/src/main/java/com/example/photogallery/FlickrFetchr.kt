@@ -9,6 +9,8 @@ import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.*
+import kotlin.collections.ArrayList
 
 object FlickrFetchr {
     private const val API_KEY = "3df4bf25938544544d17ee089e0979a3"
